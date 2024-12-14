@@ -1,5 +1,6 @@
 import { DECK, COLOR } from './deck.js';
 
+
 let maxTotal = 0;
 
 // let reset = false;
@@ -193,3 +194,4 @@ export function calcScore(score: number, totalCurrCards: number, drawnCards: str
     }
     return {updatedScore: score, updatedReset: updatedReset};
 }
+

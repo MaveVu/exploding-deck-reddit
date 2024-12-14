@@ -1,7 +1,8 @@
-// Learn more at developers.reddit.com/docs
-import { Devvit, useState, useChannel, useInterval } from '@devvit/public-api';
+import { Devvit, useState, useChannel, useInterval, useAsync } from '@devvit/public-api';
 import { DECK } from './deck.js';
 import { getCardName, getLastFiveCards, getCard, shuffle, calcPlus, calcScore } from './utilities.js';
+
+const DEBOUNCE_DELAY = 1000; 
 
 type Payload = {
   card: string;
@@ -17,32 +18,8 @@ type RealtimeMessage = {
   payload: Payload;
   session: string;
   // avoid losing data after reloading
-  // postId: string;
+  postId: string;
 };
-
-enum PageType {
-  HOMEPAGE,
-  COUNTPAGE,
-}
-
-const App: Devvit.CustomPostComponent = () => {
-  const [page, navigate] = useState(PageType.HOMEPAGE);
-
-  const props = {
-    navigate,
-  };
-
-  if (page === PageType.COUNTPAGE) {
-    return <CountPage {...props} />;
-  } else {
-    return <HomePage {...props} />;
-  }
-};
-
-
-interface Props {
-  navigate: (page: PageType) => void;
-}
 
 function sessionId(): string {
   let id = '';
@@ -59,15 +36,42 @@ Devvit.configure({
   redis: true,
 });
 
-const HomePage: Devvit.BlockComponent<Props> = ({ navigate })  => {
-  const mySession = sessionId();
-    // const [currCard, setCard] = useState(async () => {
-    //   const cardData = await redis.get(myPostId);
-    //   if (cardData) {
-    //     return cardData;
-    //   }
-    //   return 'back.png';
-    // });
+export interface Props {
+  navigate: (page: PageType) => void;
+  setCount: (count: number) => void;
+  count: number;
+  setCard: (card: string) => void;
+  currCard: string;
+  setCards: (drawnCards: string[]) => void;
+  drawnCards: string[];
+  setTotal: (totalCurrCards: number) => void;
+  totalCurrCards: number;
+  setDeck: (currDeck: string[]) => void;
+  currDeck: string[];
+  setPlus: (plus: number) => void;
+  plus: number;
+  setScore: (score: number) => void;
+  score: number;
+  setReset: (reset: boolean) => void;
+  reset: boolean;
+  setMaxTotal: (maxTotal: number) => void;
+  maxTotal: number;
+  setLastClickTime: (lastClickTime: number) => void;
+  lastClickTime: number;
+  setIsDebouncing: (isDebouncing: boolean) => void;
+  isDebouncing: boolean;
+  handleClick: () => Promise<void>;
+}
+
+enum PageType {
+  HOMEPAGE,
+  COUNTPAGE,
+}
+
+const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
+  const [page, navigate] = useState(PageType.HOMEPAGE);
+  const [count, setCount] = useState(0);
+
   const [currCard, setCard] = useState('back.png');
   const [drawnCards, setCards] = useState<string[]>([]);;
   const [totalCurrCards, setTotal] = useState(0);
@@ -76,25 +80,14 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate })  => {
   const [score, setScore] = useState(0);
   const [reset, setReset] = useState(false);
   const [maxTotal, setMaxTotal] = useState(0);
-  
 
-  // Variables for delaying the button
   const [lastClickTime, setLastClickTime] = useState(0);
   const [isDebouncing, setIsDebouncing] = useState(false);
-  const DEBOUNCE_DELAY = 1000; 
-  
-  const lockKey = 'button_lock';
-  const lockDuration = 5000;
-
-  const countPage: Devvit.Blocks.OnPressEventHandler = () => {
-    navigate(PageType.COUNTPAGE);
-  };
 
   const channel = useChannel<RealtimeMessage>({
     name: 'events',
     onMessage: (msg) => {
-      // if (msg.session === mySession || msg.postId !== myPostId) {
-      if (msg.session === mySession) {
+      if (msg.session === mySession || msg.postId !== myPostId) {
         //Ignore my updates b/c they have already been rendered
         return;
       }
@@ -108,15 +101,8 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate })  => {
       setMaxTotal(payload.maxTotal);
     },
   });
-
+  
   channel.subscribe();
-
-
-  // Add delay to the button to avoid spamming
-  const updateInterval = useInterval(() => {
-    const now = Date.now();
-    setIsDebouncing(now - lastClickTime <= DEBOUNCE_DELAY);
-  }, 100).start();
 
   const handleClick = async () => {
     const now = Date.now();
@@ -127,11 +113,67 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate })  => {
     const { updatedCard, updatedDeck, updatedDrawnCards, updatedTotal, updatedScore, updatedReset, updatedMax } = getCard(currDeck, drawnCards, totalCurrCards, score, reset, maxTotal);
     setScore(updatedScore);
     const payload: Payload = { card: updatedCard, drawnCards: updatedDrawnCards, totalCurrCards: updatedTotal, currDeck: updatedDeck, plus: calcPlus(updatedTotal), reset: updatedReset, maxTotal: updatedMax};
-    const message: RealtimeMessage = { payload, session: mySession };
+    const message: RealtimeMessage = { payload, session: mySession, postId: myPostId };
 
     // Send the message with the payload
     await channel.send(message);
   };
+
+  const props: Props = {
+    navigate,
+    setCount,
+    count,
+    currCard,
+    setCard,
+    drawnCards,
+    setCards,
+    totalCurrCards,
+    setTotal,
+    currDeck,
+    setDeck,
+    plus,
+    setPlus,
+    score,
+    setScore,
+    reset,
+    setReset,
+    maxTotal,
+    setMaxTotal,
+    isDebouncing,
+    setIsDebouncing,
+    lastClickTime,
+    setLastClickTime,
+    handleClick,
+  };
+
+  const { postId } = context;
+  const mySession = sessionId();
+  const myPostId = postId ?? 'defaultPostId'; 
+
+
+
+  if (page === PageType.COUNTPAGE) {
+    return <CountPage {...props} />;
+  } else {
+    return <HomePage {...props} />;
+  }
+};
+
+const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, drawnCards, setCards, totalCurrCards, setTotal, currDeck, setDeck,
+  plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick}, context) => {
+  const countPage: Devvit.Blocks.OnPressEventHandler = () => {
+    navigate(PageType.COUNTPAGE);
+  };
+  const { postId } = context;
+  const mySession = sessionId();
+  const myPostId = postId ?? 'defaultPostId'; 
+
+  // Add delay to the button to avoid spamming
+  const updateInterval = useInterval(() => {
+    const now = Date.now();
+    setIsDebouncing(now - lastClickTime <= DEBOUNCE_DELAY);
+  }, 100).start();
+
   return (
     <zstack width='100%' height='100%'>
       <image 
@@ -164,51 +206,40 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate })  => {
         </hstack>
       </vstack>
     </zstack>
-  )
-  
+  );
 };
 
-const CountPage: Devvit.BlockComponent<Props> = ({ navigate }) => {
-  const homePage: Devvit.Blocks.OnPressEventHandler = () => {
+const CountPage: Devvit.BlockComponent<Props> = ({ navigate, setCount, count }) => {
+  const incrementCount: Devvit.Blocks.OnPressEventHandler = () => {
+    setCount(count+1);
+  };
+
+  const goToHomePage: Devvit.Blocks.OnPressEventHandler = () => {
     navigate(PageType.HOMEPAGE);
   };
+
   return (
-    <vstack padding="medium" gap="medium">
-      <button icon='close' onPress={homePage}></button>
+    <vstack padding="medium" gap="medium" alignment="top center" cornerRadius="medium">
       <text size="xxlarge" weight="bold" grow>
         {'Press the button to add +1'}
       </text>
+      <text>{count}</text>
+      <vstack alignment="center bottom" gap="small">
+        <button onPress={incrementCount} appearance="secondary">
+          Count!
+        </button>
+        <button onPress={goToHomePage} appearance="primary">
+          Back to Home
+        </button>
+      </vstack>
     </vstack>
   );
 };
 
-// Add a menu item to the subreddit menu for instantiating the new experience post
-Devvit.addMenuItem({
-  label: 'Add new game',
-  location: 'subreddit',
-  forUserType: 'moderator',
-  onPress: async (_event, context) => {
-    const { reddit, ui } = context;
-    const subreddit = await reddit.getCurrentSubreddit();
-    await reddit.submitPost({
-      title: 'EXPLODING DECK 💣🃏',
-      subredditName: subreddit.name,
-      // The preview appears while the post loads
-      preview: (
-        <vstack height="100%" width="100%" alignment="middle center">
-          <text size="large">Loading ...</text>
-        </vstack>
-      ),
-    });
-    ui.showToast({ text: 'Created post!' });
-  },
-});
-
-// Add a post type definition
 Devvit.addCustomPostType({
-  name: 'EXPLODING DECK',
+  name: 'Navigation and Counter App',
+  description: 'Navigate between pages and count!',
   height: 'tall',
-  description: 'Play and explode!',
   render: App,
 });
 
