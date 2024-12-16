@@ -93,6 +93,7 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
   // data is a string
   const [data, setData] = useState(async () => {
     const postData = await context.redis.get(`${postId}`);
+    const postScore = await context.redis.get(`${postId}-${context.userId}`);
     if (postData) {
       const postDataStr = JSON.parse(postData);
       setCard(postDataStr.currCard);
@@ -102,7 +103,9 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
       setPlus(postDataStr.plus);
       setReset(postDataStr.reset);
       setMaxTotal(postDataStr.maxTotal);
-      setScore(0);
+      if (postScore){
+        setScore(JSON.parse(postScore));
+      }
       return postData;
     }
     else{
@@ -127,9 +130,9 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
       plus: pplus,
       reset: preset,
       maxTotal: pmaxTotal,
-      score: pscore,
     })  
     await context.redis.set(`${postId}`, data);
+    await context.redis.set(`${postId}-${context.userId}`, JSON.stringify(pscore));
   }
 
   const channel = useChannel<RealtimeMessage>({
@@ -165,7 +168,16 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
     
     // Send the message with the payload
     await channel.send(message);
-    await setPostData(payload.currCard, payload.drawnCards, payload.totalCurrCards, payload.currDeck, payload.plus, payload.reset, payload.maxTotal, updatedScore);
+    await setPostData(
+      payload.currCard, 
+      payload.drawnCards, 
+      payload.totalCurrCards, 
+      payload.currDeck, 
+      payload.plus, 
+      payload.reset, 
+      payload.maxTotal, 
+      updatedScore // Pass the updated score directly
+    );
   };
 
   const props: Props = {
@@ -204,7 +216,7 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
 };
 
 const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, drawnCards, setCards, totalCurrCards, setTotal, currDeck, setDeck,
-  plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick, postId}, context) => {
+  plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick, postId }, context) => {
   const countPage: Devvit.Blocks.OnPressEventHandler = () => {
     navigate(PageType.COUNTPAGE);
   };
