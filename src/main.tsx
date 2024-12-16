@@ -282,6 +282,7 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
     navigate(PageType.HOMEPAGE);
   };
 
+
   const { data: leaderboard, loading } = useAsync(async () => {
     return await context.redis.zRange(`${postId}-leaderboard`, -Infinity, +Infinity, { 
       reverse: true, 
@@ -357,6 +358,39 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
     </zstack>
   )
 };
+
+// Create a post daily at 12:00 UTC
+Devvit.addSchedulerJob({
+  name: 'daily_exploding_deck',
+  onRun: async (event, context) => {
+    const subreddit = await context.reddit.getCurrentSubreddit();
+    await context.reddit.submitPost({
+      subredditName: subreddit.name,
+      title: `Daily EXPLODING DECK 💣🃏 - ${new Date().toDateString()}`,
+      preview: (
+        <vstack>
+          <text>Loading EXPLODING DECK 💣🃏...</text>
+        </vstack>
+      ),
+    });
+  },
+});
+
+Devvit.addTrigger({
+  event: 'AppInstall',
+  onEvent: async (event, context) => {
+    try {
+      const jobId = await context.scheduler.runJob({
+        name: 'daily_exploding_deck',
+        cron: '0 12 * * *', 
+      });
+      await context.redis.set('dailyExplodingDeckJobId', jobId);
+    } catch (e) {
+      console.log('Error scheduling daily Exploding Deck post:', e);
+    }
+  },
+});
+
 
 Devvit.addCustomPostType({
   name: 'EXPLODING DECK 💣🃏',
