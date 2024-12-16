@@ -68,8 +68,22 @@ export interface Props {
 
 enum PageType {
   HOMEPAGE,
-  COUNTPAGE,
+  LEADERBOARD,
 }
+
+async function getUsernameFromId(context: Devvit.Context) {
+  const user = await context.reddit.getUserById(context.userId ?? '');
+  if (user) {
+    return `${user.username}`;
+  }
+  return 'undefined';
+}
+
+async function getMemberScore(context: Devvit.Context, postId: string, username: string) {
+  const score = await context.redis.zScore(`${postId}-leaderboard`, username);
+  return score ?? 0;
+}
+
 
 const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
   const [page, navigate] = useState(PageType.HOMEPAGE);
@@ -103,9 +117,9 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
       setPlus(postDataStr.plus);
       setReset(postDataStr.reset);
       setMaxTotal(postDataStr.maxTotal);
-      if (postScore){
-        setScore(JSON.parse(postScore));
-      }
+      const username = await getUsernameFromId(context);
+      const score = await getMemberScore(context, postId, username);
+      setScore(score);
       return postData;
     }
     else{
@@ -132,7 +146,8 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
       maxTotal: pmaxTotal,
     })  
     await context.redis.set(`${postId}`, data);
-    await context.redis.set(`${postId}-${context.userId}`, JSON.stringify(pscore));
+    const username = await getUsernameFromId(context);
+    await context.redis.zAdd(`${postId}-leaderboard`, { member: username, score: pscore });
   }
 
   const channel = useChannel<RealtimeMessage>({
@@ -208,8 +223,8 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
     postId,
   };
 
-  if (page === PageType.COUNTPAGE) {
-    return <CountPage {...props} />;
+  if (page === PageType.LEADERBOARD) {
+    return <Leaderboard {...props} />;
   } else {
     return <HomePage {...props} />;
   }
@@ -217,8 +232,8 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
 
 const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, drawnCards, setCards, totalCurrCards, setTotal, currDeck, setDeck,
   plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick, postId }, context) => {
-  const countPage: Devvit.Blocks.OnPressEventHandler = () => {
-    navigate(PageType.COUNTPAGE);
+  const leaderboard: Devvit.Blocks.OnPressEventHandler = () => {
+    navigate(PageType.LEADERBOARD);
   };
 
   // Add delay to the button to avoid spamming
@@ -255,37 +270,69 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, d
           <button onPress={handleClick} disabled={isDebouncing} appearance='primary'>
             Draw!
           </button>
-          <button appearance='primary' onPress={countPage}>Leaderboard</button>
+          <button appearance='primary' onPress={leaderboard}>Leaderboard</button>
         </hstack>
       </vstack>
     </zstack>
   );
 };
 
-const CountPage: Devvit.BlockComponent<Props> = ({ navigate, setCount, count }) => {
-  const incrementCount: Devvit.Blocks.OnPressEventHandler = () => {
-    setCount(count+1);
-  };
-
+const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context) => {
   const goToHomePage: Devvit.Blocks.OnPressEventHandler = () => {
     navigate(PageType.HOMEPAGE);
   };
 
-  return (
-    <vstack padding="medium" gap="medium" alignment="top center" cornerRadius="medium">
-      <text size="xxlarge" weight="bold" grow>
-        {'Press the button to add +1'}
-      </text>
-      <text>{count}</text>
-      <vstack alignment="center bottom" gap="small">
-        <button onPress={incrementCount} appearance="secondary">
-          Count!
-        </button>
-        <button onPress={goToHomePage} appearance="primary">
-          Back to Home
-        </button>
-      </vstack>
+  const { data: leaderboard, loading } = useAsync(async () => {
+    return await context.redis.zRange(`${postId}-leaderboard`, 0, 4, { 
+      reverse: true, 
+      by: 'score' 
+    });
+  });
+
+  if (loading) {
+    return (
+    <vstack alignment='center middle'>
+      <text size='xxlarge'>Loading leaderboard... 🏆</text>
     </vstack>
+    );
+  }
+
+  if (leaderboard === null || leaderboard.length === 0) {
+    return (
+      <vstack alignment='center middle'>
+        <text size="xlarge">Leaderboard</text>
+        <text>No one explodes yet</text>
+        <button onPress={goToHomePage} icon='close'></button>
+      </vstack>
+    );
+  }
+
+  return (
+    <vstack height="100%" width="100%">
+        <image 
+        url='background.png'
+        imageHeight={512}
+        imageWidth={720}
+        resizeMode='cover'
+        />
+        <vstack height="100%" width="100%" gap="medium" alignment='center middle'>
+          <text size="xlarge">Leaderboard</text>
+          
+          <hstack gap="small" padding="small" backgroundColor="neutral-background-weak">
+            <text style="heading" size="small" grow>Rank</text>
+            <text style="heading" size="small" grow>Username</text>
+            <text style="heading" size="small" grow>Score</text>
+          </hstack>
+          {leaderboard.map((entry, index) => (
+            <hstack key={entry.member} gap="small" padding="small" border="thin" borderColor="neutral">
+              <text grow>{index + 1}</text>
+              <text grow>{entry.member}</text>
+              <text grow>{entry.score}</text>
+            </hstack>
+          ))}
+        </vstack>
+        <button onPress={goToHomePage} icon='close'></button>
+      </vstack>
   );
 };
 
@@ -308,9 +355,9 @@ Devvit.addMenuItem({
     await reddit.submitPost({
       // This will show while your custom post is loading
       preview: (
-        <vstack padding="medium" cornerRadius="medium">
+        <vstack alignment='center middle'>
           <text style="heading" size="medium">
-            Loading...
+          Wait til loading finishes, then explode. 💣💣💣
           </text>
         </vstack>
       ),
