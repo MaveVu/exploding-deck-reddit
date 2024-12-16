@@ -1,11 +1,11 @@
-import { Devvit, useState, useChannel, useInterval, useAsync } from '@devvit/public-api';
+import { Devvit, useState, useChannel, useInterval, useAsync} from '@devvit/public-api';
 import { DECK } from './deck.js';
 import { getCardName, getLastFiveCards, getCard, shuffle, calcPlus, calcScore } from './utilities.js';
 
 const DEBOUNCE_DELAY = 1000; 
 
 type Payload = {
-  card: string;
+  currCard: string;
   drawnCards: string[];
   totalCurrCards: number;
   currDeck: string[];
@@ -13,6 +13,8 @@ type Payload = {
   reset: boolean;
   maxTotal: number;
 };
+
+
 
 type RealtimeMessage = {
   payload: Payload;
@@ -61,6 +63,7 @@ export interface Props {
   setIsDebouncing: (isDebouncing: boolean) => void;
   isDebouncing: boolean;
   handleClick: () => Promise<void>;
+  postId: string;
 }
 
 enum PageType {
@@ -83,16 +86,61 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
 
   const [lastClickTime, setLastClickTime] = useState(0);
   const [isDebouncing, setIsDebouncing] = useState(false);
+ 
+  const postId = context.postId ?? 'defaultPostId';
+  const mySession = sessionId();
+  
+  // data is a string
+  const [data, setData] = useState(async () => {
+    const postData = await context.redis.get(`${postId}`);
+    if (postData) {
+      const postDataStr = JSON.parse(postData);
+      setCard(postDataStr.currCard);
+      setCards(postDataStr.drawnCards);
+      setTotal(postDataStr.totalCurrCards);
+      setDeck(postDataStr.currDeck);
+      setPlus(postDataStr.plus);
+      setReset(postDataStr.reset);
+      setMaxTotal(postDataStr.maxTotal);
+      setScore(0);
+      return postData;
+    }
+    else{
+      return JSON.stringify({
+        currCard: 'back.png',
+        drawnCards: [],
+        totalCurrCards: 0,
+        currDeck: shuffle([...DECK]),
+        plus: 1,
+        score: 0,
+        reset: false,
+        maxTotal: 0})
+    }
+  });
+
+  async function setPostData(pcurrCard: string, pdrawnCards: string[], ptotalCurrCards: number, pcurrDeck: string[], pplus: number, preset: boolean, pmaxTotal: number, pscore: number) {
+    const data = JSON.stringify({
+      currCard: pcurrCard,
+      drawnCards: pdrawnCards,
+      totalCurrCards: ptotalCurrCards,
+      currDeck: pcurrDeck,
+      plus: pplus,
+      reset: preset,
+      maxTotal: pmaxTotal,
+      score: pscore,
+    })  
+    await context.redis.set(`${postId}`, data);
+  }
 
   const channel = useChannel<RealtimeMessage>({
     name: 'events',
     onMessage: (msg) => {
-      if (msg.session === mySession || msg.postId !== myPostId) {
+      if (msg.session === mySession || msg.postId !== postId) {
         //Ignore my updates b/c they have already been rendered
         return;
       }
       const payload = msg.payload;
-      setCard(payload.card);
+      setCard(payload.currCard);
       setCards(payload.drawnCards);
       setTotal(payload.totalCurrCards);
       setDeck([...payload.currDeck]);
@@ -104,7 +152,7 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
   
   channel.subscribe();
 
-  const handleClick = async () => {
+  const handleClick = async ()=> {
     const now = Date.now();
     setLastClickTime(now);
     setIsDebouncing(true);
@@ -112,11 +160,12 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
     // Logic for drawing a card
     const { updatedCard, updatedDeck, updatedDrawnCards, updatedTotal, updatedScore, updatedReset, updatedMax } = getCard(currDeck, drawnCards, totalCurrCards, score, reset, maxTotal);
     setScore(updatedScore);
-    const payload: Payload = { card: updatedCard, drawnCards: updatedDrawnCards, totalCurrCards: updatedTotal, currDeck: updatedDeck, plus: calcPlus(updatedTotal), reset: updatedReset, maxTotal: updatedMax};
-    const message: RealtimeMessage = { payload, session: mySession, postId: myPostId };
-
+    const payload: Payload = { currCard: updatedCard, drawnCards: updatedDrawnCards, totalCurrCards: updatedTotal, currDeck: updatedDeck, plus: calcPlus(updatedTotal), reset: updatedReset, maxTotal: updatedMax };
+    const message: RealtimeMessage = { payload, session: mySession, postId };
+    
     // Send the message with the payload
     await channel.send(message);
+    await setPostData(payload.currCard, payload.drawnCards, payload.totalCurrCards, payload.currDeck, payload.plus, payload.reset, payload.maxTotal, updatedScore);
   };
 
   const props: Props = {
@@ -144,13 +193,8 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
     lastClickTime,
     setLastClickTime,
     handleClick,
+    postId,
   };
-
-  const { postId } = context;
-  const mySession = sessionId();
-  const myPostId = postId ?? 'defaultPostId'; 
-
-
 
   if (page === PageType.COUNTPAGE) {
     return <CountPage {...props} />;
@@ -160,13 +204,10 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
 };
 
 const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, drawnCards, setCards, totalCurrCards, setTotal, currDeck, setDeck,
-  plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick}, context) => {
+  plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick, postId}, context) => {
   const countPage: Devvit.Blocks.OnPressEventHandler = () => {
     navigate(PageType.COUNTPAGE);
   };
-  const { postId } = context;
-  const mySession = sessionId();
-  const myPostId = postId ?? 'defaultPostId'; 
 
   // Add delay to the button to avoid spamming
   const updateInterval = useInterval(() => {
@@ -237,10 +278,39 @@ const CountPage: Devvit.BlockComponent<Props> = ({ navigate, setCount, count }) 
 };
 
 Devvit.addCustomPostType({
-  name: 'Navigation and Counter App',
-  description: 'Navigate between pages and count!',
+  name: 'EXPLODING DECK 💣🃏',
+  description: 'Having fun and exploding!!!',
   height: 'tall',
   render: App,
+});
+
+Devvit.addMenuItem({
+  label: 'New Game',
+  location: 'subreddit',
+  onPress: async (_, { reddit, ui }) => {
+    const subreddit = await reddit.getCurrentSubreddit();
+
+    /*
+     * Submits the custom post to the specified subreddit
+     */
+    await reddit.submitPost({
+      // This will show while your custom post is loading
+      preview: (
+        <vstack padding="medium" cornerRadius="medium">
+          <text style="heading" size="medium">
+            Loading...
+          </text>
+        </vstack>
+      ),
+      title: `EXPLODING DECK`,
+      subredditName: subreddit.name,
+    });
+
+    ui.showToast({
+      text: `Successfully created an Exploding Deck!`,
+      appearance: 'success',
+    });
+  },
 });
 
 export default Devvit;
