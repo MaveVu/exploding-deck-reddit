@@ -191,7 +191,7 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
       payload.plus, 
       payload.reset, 
       payload.maxTotal, 
-      updatedScore // Pass the updated score directly
+      updatedScore 
     );
   };
 
@@ -242,7 +242,7 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, d
     setIsDebouncing(now - lastClickTime <= DEBOUNCE_DELAY);
   }, 100).start();
 
-  return (
+  return (  
     <zstack width='100%' height='100%'>
       <image 
       url='background.png'
@@ -291,47 +291,64 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
 
   if (loading) {
     return (
-    <vstack alignment='center middle'>
-      <text size='xxlarge'>Loading leaderboard... 🏆</text>
+    <vstack height='100%' width='100%'>
+      <image 
+        url='background.png'
+        imageHeight={512}
+        imageWidth={720}
+        resizeMode='cover'
+      />
+      <vstack height='100%' width='100%' alignment='center middle'>
+        <text size='xxlarge'>Loading leaderboard... 🏆</text>
+      </vstack>
     </vstack>
     );
   }
 
   if (leaderboard === null || leaderboard.length === 0) {
     return (
-      <vstack alignment='center middle'>
-        <text size="xlarge">Leaderboard</text>
-        <text>No one explodes yet</text>
-        <button onPress={goToHomePage} icon='close'></button>
+      <vstack height='100%' width='100%'>
+        <image 
+          url='background.png'
+          imageHeight={512}
+          imageWidth={720}
+          resizeMode='cover'
+        />
+        <vstack alignment='center middle' height='100%' width='100%'>
+          <text size="xlarge" color='black'>Leaderboard</text>
+          <text color='black'>No one explodes yet</text>
+          <button onPress={goToHomePage} icon='close' appearance='primary'></button>
+        </vstack>
       </vstack>
-    );
+      );
+      
   }
 
   return (
     <vstack height="100%" width="100%">
         <image 
-        url='background.png'
-        imageHeight={512}
-        imageWidth={720}
-        resizeMode='cover'
+          url='background.png'
+          imageHeight={512}
+          imageWidth={720}
+          resizeMode='cover'
         />
         <vstack height="100%" width="100%" gap="medium" alignment='center middle'>
-          <text size="xlarge">Leaderboard</text>
+          <text size="xlarge" color='black'>Leaderboard</text>
           
-          <hstack gap="small" padding="small" backgroundColor="neutral-background-weak">
-            <text style="heading" size="small" grow>Rank</text>
-            <text style="heading" size="small" grow>Username</text>
-            <text style="heading" size="small" grow>Score</text>
+          <hstack>
+            <text style="heading" size="small" color='black' grow>Rank</text>
+            <text style="heading" size="small" color='black' grow>Username</text>
+            <text style="heading" size="small" color='black' grow>Score</text>
           </hstack>
           {leaderboard.map((entry, index) => (
-            <hstack key={entry.member} gap="small" padding="small" border="thin" borderColor="neutral">
-              <text grow>{index + 1}</text>
-              <text grow>{entry.member}</text>
-              <text grow>{entry.score}</text>
+            <hstack key={entry.member}>
+              <text color='black' grow>{index + 1}</text>
+              <text color='black' grow>{entry.member}</text>
+              <text color='black' grow>{entry.score}</text>
             </hstack>
           ))}
         </vstack>
-        <button onPress={goToHomePage} icon='close'></button>
+        <button onPress={goToHomePage} icon='close' appearance='primary'></button>
       </vstack>
   );
 };
