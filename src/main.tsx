@@ -245,10 +245,10 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, d
   return (  
     <zstack width='100%' height='100%'>
       <image 
-      url='background.png'
-      imageHeight={512}
-      imageWidth={720}
-      resizeMode='cover'
+        url='background.png'
+        imageHeight={512}
+        imageWidth={720}
+        resizeMode='cover'
       />
       
       <vstack height="100%" width="100%" gap="medium" alignment="center middle">
@@ -283,7 +283,7 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
   };
 
   const { data: leaderboard, loading } = useAsync(async () => {
-    return await context.redis.zRange(`${postId}-leaderboard`, 0, 4, { 
+    return await context.redis.zRange(`${postId}-leaderboard`, -Infinity, +Infinity, { 
       reverse: true, 
       by: 'score' 
     });
@@ -291,23 +291,23 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
 
   if (loading) {
     return (
-    <vstack height='100%' width='100%'>
-      <image 
-        url='background.png'
-        imageHeight={512}
-        imageWidth={720}
-        resizeMode='cover'
-      />
-      <vstack height='100%' width='100%' alignment='center middle'>
-        <text size='xxlarge'>Loading leaderboard... 🏆</text>
-      </vstack>
-    </vstack>
+      <zstack height='100%' width='100%'>
+        <image 
+          url='background.png'
+          imageHeight={512}
+          imageWidth={720}
+          resizeMode='cover'
+        />
+        <vstack height='100%' width='100%' alignment='center middle'>
+          <text color='black' size='xxlarge'>Loading leaderboard... 🏆</text>
+        </vstack>
+      </zstack>
     );
   }
 
   if (leaderboard === null || leaderboard.length === 0) {
     return (
-      <vstack height='100%' width='100%'>
+      <zstack height='100%' width='100%'>
         <image 
           url='background.png'
           imageHeight={512}
@@ -315,33 +315,37 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
           resizeMode='cover'
         />
         <vstack alignment='center middle' height='100%' width='100%'>
-          <text size="xlarge" color='black'>Leaderboard</text>
-          <text color='black'>No one explodes yet</text>
+          <text color='black' size="xxlarge">Leaderboard</text>
+          <text color='black'>No one explodes yet 😃😃😃</text>
           <button onPress={goToHomePage} icon='close' appearance='primary'></button>
         </vstack>
-      </vstack>
-      );
-      
+      </zstack>
+    )
   }
 
   return (
-    <vstack height="100%" width="100%">
-        <image 
-          url='background.png'
-          imageHeight={512}
-          imageWidth={720}
-          resizeMode='cover'
-        />
-        <vstack height="100%" width="100%" gap="medium" alignment='center middle'>
-          <text size="xlarge" color='black'>Leaderboard</text>
-          
-          <hstack>
-            <text style="heading" size="small" color='black' grow>Rank</text>
-            <text style="heading" size="small" color='black' grow>Username</text>
-            <text style="heading" size="small" color='black' grow>Score</text>
+    <zstack height='100%' width='100%'>
+      <image 
+        url='background.png'
+        imageHeight={512}
+        imageWidth={720}
+        resizeMode='cover'
+      />
+      <vstack gap="small" alignment='center middle' height='100%' width='100%'>
+        <text color='black' size="xlarge">Leaderboard</text>
+        <vstack 
+          gap="small" 
+          border='thick' 
+          borderColor="black" 
+          cornerRadius="small"
+        >
+          <hstack gap="medium" padding="small">
+            <text color='black' style="heading" size="small" grow>Rank</text>
+            <text color='black' style="heading" size="small" grow>Username</text>
+            <text color='black' style="heading" size="small" grow>Score</text>
           </hstack>
           {leaderboard.map((entry, index) => (
-            <hstack key={entry.member}>
+            <hstack key={entry.member} gap="medium" padding="small" >
               <text color='black' grow>{index + 1}</text>
               <text color='black' grow>{entry.member}</text>
               <text color='black' grow>{entry.score}</text>
@@ -350,7 +354,8 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
         </vstack>
         <button onPress={goToHomePage} icon='close' appearance='primary'></button>
       </vstack>
-  );
+    </zstack>
+  )
 };
 
 Devvit.addCustomPostType({
