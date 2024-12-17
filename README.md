@@ -11,5 +11,5 @@
 * A moderator can create a new post but new post is automatically created everyday at 12:00 UTC
 * For user, it is a really simple interface with only 3 buttons: Rules (move to Rules page), Draw! (draw a new card), Leaderboard (move to Leaderboard page)
 
-## version: `0.0.1` (Last updated on 17 Dec)
+## version: `0.0.3` (Last updated on 17 Dec)
 
