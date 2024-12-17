@@ -1,5 +1,5 @@
 import { Devvit, useState, useChannel, useInterval, useAsync} from '@devvit/public-api';
-import { DECK } from './deck.js';
+import { DECK, INSTRUCTION } from './deck.js';
 import { getCardName, getLastFiveCards, getCard, shuffle, calcPlus, calcScore } from './utilities.js';
 
 const DEBOUNCE_DELAY = 1000; 
@@ -69,6 +69,7 @@ export interface Props {
 enum PageType {
   HOMEPAGE,
   LEADERBOARD,
+  RULES,
 }
 
 async function getUsernameFromId(context: Devvit.Context) {
@@ -225,15 +226,23 @@ const App: Devvit.CustomPostComponent = (context: Devvit.Context) => {
 
   if (page === PageType.LEADERBOARD) {
     return <Leaderboard {...props} />;
-  } else {
+  } else if (page === PageType.RULES) {
+    return <Rules {...props} />;
+  }
+  else{
     return <HomePage {...props} />;
   }
 };
 
 const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, drawnCards, setCards, totalCurrCards, setTotal, currDeck, setDeck,
   plus, setPlus, score, setScore, reset, setReset, maxTotal, setMaxTotal, isDebouncing, setIsDebouncing, lastClickTime, setLastClickTime, handleClick, postId }, context) => {
+  
   const leaderboard: Devvit.Blocks.OnPressEventHandler = () => {
     navigate(PageType.LEADERBOARD);
+  };
+
+  const rules: Devvit.Blocks.OnPressEventHandler = () => {
+    navigate(PageType.RULES);
   };
 
   // Add delay to the button to avoid spamming
@@ -266,7 +275,7 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, d
         <text color='black' size="large">{`Last 5 cards: ${getLastFiveCards(drawnCards)}`}</text>
         <text color='black' size="xxlarge">{`Score: ${score}`}</text>
         <hstack gap='medium'>
-          <button appearance='primary'>Rules</button>
+          <button appearance='primary' onPress={rules}>Rules</button>
           <button onPress={handleClick} disabled={isDebouncing} appearance='primary'>
             Draw!
           </button>
@@ -278,10 +287,10 @@ const HomePage: Devvit.BlockComponent<Props> = ({ navigate, currCard, setCard, d
 };
 
 const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context) => {
+  
   const goToHomePage: Devvit.Blocks.OnPressEventHandler = () => {
     navigate(PageType.HOMEPAGE);
   };
-
 
   const { data: leaderboard, loading } = useAsync(async () => {
     return await context.redis.zRange(`${postId}-leaderboard`, -Infinity, +Infinity, { 
@@ -359,6 +368,66 @@ const Leaderboard: Devvit.BlockComponent<Props> = ({ navigate, postId }, context
   )
 };
 
+const Rules: Devvit.BlockComponent<Props> = ({ navigate }, context) => {
+  
+  const goToHomePage: Devvit.Blocks.OnPressEventHandler = () => {
+    navigate(PageType.HOMEPAGE);
+  };
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const moveForward = () => {
+    if (currentIndex < INSTRUCTION.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+    }
+  };
+
+  const moveBackward = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1);
+    }
+  };
+
+  return (
+    <zstack height='100%' width='100%'>
+      <image 
+        url='background.png'
+        imageHeight={512}
+        imageWidth={720}
+        resizeMode='cover'
+      />
+
+      <vstack gap="medium" height='100%' width='100%' alignment='center middle'>
+        <image 
+          url={INSTRUCTION[currentIndex]}
+          description="instruction"
+          imageHeight={384}
+          imageWidth={384}
+          height="300px"
+          width="300px"
+        />
+        <hstack gap="medium">
+          <button 
+            onPress={moveBackward} 
+            disabled={currentIndex === 0}
+            icon='caret-left'
+            appearance='primary'
+          >
+          </button>
+          <button 
+            onPress={moveForward} 
+            disabled={currentIndex === INSTRUCTION.length - 1}
+            icon='caret-right'
+            appearance='primary'
+          >
+          </button>
+        </hstack>
+        <button onPress={goToHomePage} appearance='primary' icon='close'></button>
+      </vstack>
+    </zstack>
+  );
+};
+
 // Create a post daily at 12:00 UTC
 Devvit.addSchedulerJob({
   name: 'daily_exploding_deck',
@@ -369,7 +438,7 @@ Devvit.addSchedulerJob({
       title: `Daily EXPLODING DECK 💣🃏 - ${new Date().toDateString()}`,
       preview: (
         <vstack>
-          <text>Loading EXPLODING DECK 💣🃏...</text>
+          <text>Wait til loading finishes, then explode. 💣💣💣</text>
         </vstack>
       ),
     });

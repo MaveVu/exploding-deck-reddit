@@ -2,6 +2,7 @@ const DECK_COL = ['yellow_1.png', 'yellow_2.png', 'yellow_3.png', 'yellow_4.png'
 const SPECIAL = ['x.png', 'high.png', 'draw3.png', 'back1.png'];
 const EXPLOSION = ['explosion.png'];
 export const COLOR = ['Y', 'R', 'B', 'G'];
+export const INSTRUCTION = ['inst_general.png', 'inst_boom.png', 'inst_back1.png', 'inst_draw3.png', 'inst_high.png', 'inst_x.png'];
 
 
 // Generate DECK (3 * color deck + 4 special cards + 4 booms)
