@@ -1,5 +1,6 @@
 # EXPLODING DECK
 
+(Test it out here: https://www.reddit.com/r/nmv_test/)
 
 ### Inspiration
 Since I was a little kid, I have played this game with my friends, using the standard 52-card deck. When I received an email about this hackathon, I was wondering which project I should do, and this game came to my mind. However, using the standard deck is too boring and Reddit is not a place for boring stuff. Therefore, I added multiple special and boom cards to make the game more engaging and fun.
